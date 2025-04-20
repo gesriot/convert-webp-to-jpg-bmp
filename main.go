@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/disintegration/imaging"
@@ -11,38 +12,43 @@ import (
 	"golang.org/x/image/webp"
 )
 
-func convertImage(input_path string, wg *sync.WaitGroup) {
+func convertImage(inputPath string, wg *sync.WaitGroup) {
 	defer wg.Done()
-
-	file, err := os.Open(input_path)
+	file, err := os.Open(inputPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Ошибка открытия файла %s: %v", inputPath, err)
+		return
 	}
 	defer file.Close()
 
 	img, err := webp.Decode(file)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Ошибка декодирования WebP %s: %v", inputPath, err)
+		return
 	}
 
-	output_path_bmp := filepath.Dir(input_path) + "/" + filepath.Base(input_path[:len(input_path)-len(filepath.Ext(input_path))]) + ".bmp"
+	baseDir := filepath.Dir(inputPath)
+	baseName := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
 
-	out_bmp, err := os.Create(output_path_bmp)
+	outputPathBmp := filepath.Join(baseDir, baseName+".bmp")
+	outBmp, err := os.Create(outputPathBmp)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Ошибка создания BMP файла %s: %v", outputPathBmp, err)
+		return
 	}
-	defer out_bmp.Close()
+	defer outBmp.Close()
 
-	err = bmp.Encode(out_bmp, img)
+	err = bmp.Encode(outBmp, img)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Ошибка кодирования BMP %s: %v", outputPathBmp, err)
+		return
 	}
 
-	output_path_jpg := filepath.Dir(input_path) + "/" + filepath.Base(input_path[:len(input_path)-len(filepath.Ext(input_path))]) + ".jpg"
-
-	err = imaging.Save(img, output_path_jpg, imaging.JPEGQuality(100))
+	outputPathJpg := filepath.Join(baseDir, baseName+".jpg")
+	err = imaging.Save(img, outputPathJpg, imaging.JPEGQuality(100))
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Ошибка сохранения JPG %s: %v", outputPathJpg, err)
+		return
 	}
 }
 
@@ -52,11 +58,9 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
-
-	for _, input_path := range os.Args[1:] {
+	for _, inputPath := range os.Args[1:] {
 		wg.Add(1)
-		go convertImage(input_path, &wg)
+		go convertImage(inputPath, &wg)
 	}
-
 	wg.Wait()
 }
